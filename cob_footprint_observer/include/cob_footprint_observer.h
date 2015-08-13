@@ -65,6 +65,7 @@
 
 // message includes
 #include <geometry_msgs/Point.h>
+#include <geometry_msgs/Polygon.h>
 #include <geometry_msgs/PolygonStamped.h>
 #include <geometry_msgs/Vector3.h>
 
@@ -105,9 +106,15 @@ class FootprintObserver
     ///
     bool getFootprintCB(cob_footprint_observer::GetFootprint::Request &req, cob_footprint_observer::GetFootprint::Response &resp);
 
+
+    ///
+    /// @brief  publishes the adjusted footprint as geometry_msgs::StampedPolygon message
+    ///
+    void publishFootprint();
+
     // public members
     ros::NodeHandle nh_;
-    ros::Publisher topic_pub_footprint_;
+    ros::Publisher topic_pub_footprint_, topic_pub_footprint_stamped_;
     ros::ServiceServer srv_get_footprint_;
 
   private:
@@ -121,8 +128,7 @@ class FootprintObserver
     ///
     /// @brief  publishes the adjusted footprint as geometry_msgs::StampedPolygon message
     ///
-    void publishFootprint();
-
+    void publishFootprintStamped();
     ///
     /// @brief  computes the sign of x
     /// @param  x - number
@@ -135,6 +141,7 @@ class FootprintObserver
     double epsilon_;
     double footprint_front_initial_, footprint_rear_initial_, footprint_left_initial_, footprint_right_initial_;
     double footprint_front_, footprint_rear_, footprint_left_, footprint_right_;
+    double corner_length_;
     tf::TransformListener tf_listener_;
     std::string frames_to_check_;
     std::string robot_base_frame_;

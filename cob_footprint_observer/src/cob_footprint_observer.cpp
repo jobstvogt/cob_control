@@ -64,7 +64,10 @@ FootprintObserver::FootprintObserver() :
   m_mutex = PTHREAD_MUTEX_INITIALIZER;
 
   // publish footprint
-  topic_pub_footprint_ = nh_.advertise<geometry_msgs::PolygonStamped>("adjusted_footprint",1);
+  topic_pub_footprint_stamped_ = nh_.advertise<geometry_msgs::PolygonStamped>("adjusted_footprint",1);
+
+  // publish footprint
+  topic_pub_footprint_ = nh_.advertise<geometry_msgs::Polygon>("robot_footprint",1);
   
   // advertise service
   srv_get_footprint_ = nh_.advertiseService("/get_footprint", &FootprintObserver::getFootprintCB, this);
@@ -93,6 +96,8 @@ FootprintObserver::FootprintObserver() :
   
   if(!nh_.hasParam("robot_base_frame")) ROS_WARN("No parameter robot_base_frame on parameter server. Using default [/base_link].");
   nh_.param("robot_base_frame", robot_base_frame_, std::string("/base_link"));
+
+  corner_length_ = 0.15;
 
   last_tf_missing_ = ros::Time::now();
 }
@@ -336,14 +341,32 @@ void FootprintObserver::checkFootprint(){
     geometry_msgs::Point point;
     std::vector<geometry_msgs::Point> points;
 
-    point.x = footprint_front_;
+    point.x = footprint_front_-corner_length_;
     point.y = footprint_left_;
     point.z = 0;
     points.push_back(point);
+    point.x = footprint_front_;
+    point.y = footprint_left_-corner_length_;
+    points.push_back(point);
+
+    point.x = footprint_front_;
+    point.y = footprint_right_+corner_length_;
+    points.push_back(point);
+    point.x = footprint_front_-corner_length_;
+    point.y = footprint_right_;
+    points.push_back(point);
+	
+    point.x = footprint_rear_+corner_length_;
     point.y = footprint_right_;
     points.push_back(point);
     point.x = footprint_rear_;
+    point.y = footprint_right_+corner_length_;
     points.push_back(point);
+
+    point.x = footprint_rear_;
+    point.y = footprint_left_-corner_length_;
+    points.push_back(point);
+    point.x = footprint_rear_+corner_length_;
     point.y = footprint_left_;
     points.push_back(point);
 
@@ -358,7 +381,7 @@ void FootprintObserver::checkFootprint(){
 }
 
 // publishes the adjusted footprint
-void FootprintObserver::publishFootprint(){
+void FootprintObserver::publishFootprintStamped(){
 
   // create Polygon message 
   geometry_msgs::PolygonStamped footprint_poly;
@@ -373,8 +396,25 @@ void FootprintObserver::publishFootprint(){
   }
 
   // publish adjusted footprint
-  topic_pub_footprint_.publish(footprint_poly);
+  topic_pub_footprint_stamped_.publish(footprint_poly);
 
+}
+
+// publishes the adjusted footprint
+void FootprintObserver::publishFootprint(){
+
+  // create Polygon message 
+  geometry_msgs::Polygon footprint_poly;
+  
+  footprint_poly.points.resize(robot_footprint_.size());
+  for(unsigned int i=0; i<robot_footprint_.size(); ++i) {
+    footprint_poly.points[i].x = robot_footprint_[i].x;
+    footprint_poly.points[i].y = robot_footprint_[i].y;
+    footprint_poly.points[i].z = robot_footprint_[i].z;   
+  }
+
+  // publish adjusted footprint
+  topic_pub_footprint_.publish(footprint_poly);
 }
 
 // compute the sign of x
@@ -394,9 +434,10 @@ int main(int argc, char** argv)
   FootprintObserver footprintObserver;
 
   // run footprint observer periodically until node has been shut down
-  ros::Rate loop_rate(30); // Hz
+  ros::Rate loop_rate(1); // Hz
   while(footprintObserver.nh_.ok()){
     footprintObserver.checkFootprint();
+    footprintObserver.publishFootprint();
     ros::spinOnce();
     loop_rate.sleep();
   }
